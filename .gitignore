@@ -1,7 +1,13 @@
 *.h5
-pycache/
+__pycache__/
 *.pyc
 .DS_Store
 .ipynb_checkpoints/
 *.pt
 *.pth
+
+BCIC2A/
+CHINESE/
+MDD/
+SEED/
+SLEEP/
