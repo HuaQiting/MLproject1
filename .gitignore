@@ -1,0 +1,7 @@
+*.h5
+pycache/
+*.pyc
+.DS_Store
+.ipynb_checkpoints/
+*.pt
+*.pth
