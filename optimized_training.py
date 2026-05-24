@@ -78,6 +78,9 @@ def train_and_evaluate():
         skf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=42)
         
         fold_results = []
+        best_model_state = None
+        best_fold_idx = 0
+        best_fold_acc = 0.0
         
         for fold, (train_idx, test_idx) in enumerate(skf.split(dataset.x, dataset.y)):
             log_results(f"\nFOLD {fold + 1}/{n_folds}")
@@ -141,6 +144,7 @@ def train_and_evaluate():
             scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=15)
             
             best_acc = 0.0
+            best_state = None
             patience = 30
             no_improve = 0
             
@@ -167,6 +171,7 @@ def train_and_evaluate():
                 
                 if acc > best_acc:
                     best_acc = acc
+                    best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
                     no_improve = 0
                 else:
                     no_improve += 1
@@ -179,6 +184,12 @@ def train_and_evaluate():
                     break
             
             fold_results.append(best_acc)
+            
+            if best_acc > best_fold_acc:
+                best_fold_idx = fold
+                best_fold_acc = best_acc
+                best_model_state = best_state
+            
             log_results(f"  Fold {fold+1} Best: {best_acc:.4f} ({best_acc*100:.2f}%)")
         
         log_results("\n" + "=" * 60)
@@ -193,6 +204,35 @@ def train_and_evaluate():
         
         log_results(f"\n  MEAN ACCURACY: {mean_acc:.4f} ± {std_acc:.4f}")
         log_results(f"  ({mean_acc*100:.2f}% ± {std_acc*100:.2f}%)")
+        
+        # -----------------------------------------
+        # 保存测试预测标签
+        # -----------------------------------------
+        log_results("\n" + "=" * 60)
+        log_results("Saving Test Predictions")
+        log_results("=" * 60)
+        
+        log_results(f"Using best model from Fold {best_fold_idx + 1} with accuracy: {best_fold_acc:.4f}")
+        
+        # 加载最佳模型
+        model.load_state_dict({k: v.to(device) for k, v in best_model_state.items()})
+        model.eval()
+        
+        output_path = "optimized_predictions.txt"
+        
+        all_test_labels = []
+        with torch.no_grad():
+            for data, labels in test_loader:
+                data = data.to(device)
+                outputs = model(data)
+                test_pred = torch.argmax(outputs, dim=1)
+                all_test_labels.extend(test_pred.cpu().tolist())
+        
+        with open(output_path, "w", encoding="utf-8") as f:
+            for label in all_test_labels:
+                f.write(f"{int(label)}\n")
+        
+        log_results(f"Saved {len(all_test_labels)} labels to: {output_path}")
         
         return mean_acc, std_acc
     
