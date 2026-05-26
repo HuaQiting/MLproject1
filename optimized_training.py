@@ -30,7 +30,7 @@ def train_and_evaluate():
     
     try:
         log_results("\nLoading dataset...")
-        data_path = "../course_project/SEED/train.h5"
+        data_path = "C:/Users/25447/Desktop/学习/机器学习及医学工程应用/共选题/MLproject1/SEED/train.h5"
         log_results(f"Data path: {data_path}")
         log_results(f"Path exists: {os.path.exists(data_path)}")
         
@@ -209,7 +209,7 @@ def train_and_evaluate():
         # 保存测试预测标签
         # -----------------------------------------
         log_results("\n" + "=" * 60)
-        log_results("Saving Test Predictions")
+        log_results("Saving ALL 900 Samples Predictions")
         log_results("=" * 60)
         
         log_results(f"Using best model from Fold {best_fold_idx + 1} with accuracy: {best_fold_acc:.4f}")
@@ -218,26 +218,26 @@ def train_and_evaluate():
         model.load_state_dict({k: v.to(device) for k, v in best_model_state.items()})
         model.eval()
         
-        output_path = "optimized_predictions.txt"
+        output_path = "C:/Users/25447/Desktop/学习/机器学习及医学工程应用/共选题/MLproject1/optimized_predictions.txt"
         
-        all_test_labels = []
+        # 创建完整数据集的dataloader（不增强）
+        full_dataset = SEEDDataset(X_tensor, y_tensor, augment=False)
+        full_loader = DataLoader(full_dataset, batch_size=32)
+        
+        all_labels = []
         with torch.no_grad():
-            for batch_data in test_loader:
-                # 处理不同格式的数据
-                if isinstance(batch_data, (tuple, list)):
-                    data = batch_data[0]  # 取数据部分，忽略标签
-                else:
-                    data = batch_data
+            for data, labels in full_loader:
                 data = data.to(device)
                 outputs = model(data)
-                test_pred = torch.argmax(outputs, dim=1)
-                all_test_labels.extend(test_pred.cpu().tolist())
+                preds = torch.argmax(outputs, dim=1)
+                all_labels.extend(preds.cpu().tolist())
         
         with open(output_path, "w", encoding="utf-8") as f:
-            for label in all_test_labels:
+            for label in all_labels:
                 f.write(f"{int(label)}\n")
         
-        log_results(f"Saved {len(all_test_labels)} labels to: {output_path}")
+        log_results(f"Saved {len(all_labels)} labels to: {output_path}")
+        log_results(f"(Total samples in dataset: {len(full_dataset)})")
         
         return mean_acc, std_acc
     
