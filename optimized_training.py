@@ -222,7 +222,12 @@ def train_and_evaluate():
         
         all_test_labels = []
         with torch.no_grad():
-            for data, labels in test_loader:
+            for batch_data in test_loader:
+                # 处理不同格式的数据
+                if isinstance(batch_data, (tuple, list)):
+                    data = batch_data[0]  # 取数据部分，忽略标签
+                else:
+                    data = batch_data
                 data = data.to(device)
                 outputs = model(data)
                 test_pred = torch.argmax(outputs, dim=1)
