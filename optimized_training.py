@@ -206,10 +206,10 @@ def train_and_evaluate():
         log_results(f"  ({mean_acc*100:.2f}% ± {std_acc*100:.2f}%)")
         
         # -----------------------------------------
-        # 保存测试预测标签
+        # 加载并预测 test_x_only.h5
         # -----------------------------------------
         log_results("\n" + "=" * 60)
-        log_results("Saving ALL 900 Samples Predictions")
+        log_results("Predicting on test_x_only.h5")
         log_results("=" * 60)
         
         log_results(f"Using best model from Fold {best_fold_idx + 1} with accuracy: {best_fold_acc:.4f}")
@@ -220,24 +220,47 @@ def train_and_evaluate():
         
         output_path = "C:/Users/25447/Desktop/学习/机器学习及医学工程应用/共选题/MLproject1/optimized_predictions.txt"
         
-        # 创建完整数据集的dataloader（不增强）
-        full_dataset = SEEDDataset(X_tensor, y_tensor, augment=False)
-        full_loader = DataLoader(full_dataset, batch_size=32)
+        # 加载测试数据
+        test_data_path = "C:/Users/25447/Desktop/学习/机器学习及医学工程应用/共选题/MLproject1/SEED/test_x_only.h5"
+        log_results(f"\nLoading test data from: {test_data_path}")
         
-        all_labels = []
+        with h5py.File(test_data_path, "r") as f:
+            X_test = torch.tensor(f['X'][:], dtype=torch.float32)
+        
+        log_results(f"Test data shape: {X_test.shape}")
+        
+        # 使用相同的标准化（基于训练数据）
+        X_test = (X_test - mean) / std
+        
+        # 创建测试数据集（只有X）
+        class TestDataset(Dataset):
+            def __init__(self, x):
+                self.x = x
+            
+            def __len__(self):
+                return len(self.x)
+            
+            def __getitem__(self, idx):
+                return self.x[idx]
+        
+        test_dataset = TestDataset(X_test)
+        test_loader = DataLoader(test_dataset, batch_size=32)
+        
+        # 预测测试数据
+        test_preds = []
         with torch.no_grad():
-            for data, labels in full_loader:
+            for data in test_loader:
                 data = data.to(device)
                 outputs = model(data)
                 preds = torch.argmax(outputs, dim=1)
-                all_labels.extend(preds.cpu().tolist())
+                test_preds.extend(preds.cpu().tolist())
         
+        # 保存测试预测结果
         with open(output_path, "w", encoding="utf-8") as f:
-            for label in all_labels:
+            for label in test_preds:
                 f.write(f"{int(label)}\n")
         
-        log_results(f"Saved {len(all_labels)} labels to: {output_path}")
-        log_results(f"(Total samples in dataset: {len(full_dataset)})")
+        log_results(f"Saved {len(test_preds)} test predictions to: {output_path}")
         
         return mean_acc, std_acc
     
